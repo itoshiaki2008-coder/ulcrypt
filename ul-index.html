@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex,nofollow">
+<title>ＵＬ救命胴衣 ホワイトリスト検索データベース</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg1:#0b1624; --bg2:#152538;
+  --card:#132339cc; --cardborder:#2a4360;
+  --accent:#3ec6e0; --accent2:#4f8ff7;
+  --text:#eef4fb; --textdim:#a9c0d6;
+  --danger:#ff6b6b; --ok:#3ecf8e;
+  --input:#0d1c2c;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  background:linear-gradient(160deg,var(--bg1),var(--bg2) 60%,#0d1a2a);
+  background-attachment:fixed;
+  color:var(--text);
+  font-family:'Share Tech Mono','Courier New',monospace;
+  min-height:100vh;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px);
+  background-size:28px 28px,28px 28px;
+}
+.wrap{max-width:980px;margin:0 auto;padding:22px 14px 80px;}
+.hero{text-align:center;margin:6px 0 22px;}
+.hero h1{font-size:19px;line-height:1.5;margin:0 0 6px;color:#fff;font-weight:700;letter-spacing:.02em;}
+.hero p{font-size:12px;color:var(--textdim);margin:4px 0;}
+.card{
+  background:var(--card);
+  border:1px solid var(--cardborder);
+  border-radius:10px;
+  padding:16px 16px;
+  margin-bottom:16px;
+  box-shadow:0 0 0 1px rgba(255,255,255,0.01), 0 8px 24px rgba(0,0,0,0.35);
+}
+.searchGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media (max-width:640px){.searchGrid{grid-template-columns:1fr;}}
+.field label{display:block;font-size:11px;color:var(--textdim);margin-bottom:5px;}
+input[type=text],input[type=password],select{
+  width:100%;background:var(--input);border:1px solid var(--cardborder);
+  color:#ffffff;padding:9px 10px;border-radius:6px;font-size:13px;
+  font-family:inherit;
+}
+select{-webkit-appearance:none;appearance:none;}
+select option{color:#0d1c2c;background:#eef4fa;}
+input:focus,select:focus{outline:none;border-color:var(--accent);}
+::placeholder{color:#7691ab;}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px;}
+.pillgroup{display:flex;gap:8px;flex-wrap:wrap;}
+.pill{
+  border:1px solid var(--cardborder);border-radius:20px;padding:6px 13px;
+  font-size:11.5px;cursor:pointer;color:var(--textdim);user-select:none;
+  background:var(--input);
+}
+.pill.active{border-color:var(--accent);color:#fff;background:#123049;box-shadow:0 0 0 1px var(--accent) inset;}
+.btn{
+  display:inline-block;background:transparent;border:1px solid var(--cardborder);
+  color:var(--textdim);border-radius:20px;padding:8px 16px;font-size:11.5px;
+  cursor:pointer;font-family:inherit;
+}
+.btn:hover{border-color:var(--accent);color:var(--accent);}
+.btn:disabled{opacity:.5;cursor:default;}
+.resultMeta{font-size:11.5px;color:var(--textdim);margin:4px 2px 10px;}
+.resultMeta b{color:var(--accent);}
+.pager{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px;}
+.pageInfo{font-size:11.5px;color:var(--textdim);}
+.pageBtn:disabled{opacity:.35;cursor:default;}
+.pageBtn:disabled:hover{border-color:var(--cardborder);color:var(--textdim);}
+.tableWrap{overflow-x:auto;border:1px solid var(--cardborder);border-radius:10px;background:#0a1826;}
+table.results{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap;background:#0a1826;}
+table.results th{
+  position:sticky;top:0;background:#08141f;color:var(--textdim);
+  font-weight:400;font-size:10.5px;text-align:left;padding:8px 10px;
+  border-bottom:1px solid var(--cardborder);letter-spacing:.02em;
+}
+table.results td{padding:7px 10px;border-bottom:1px solid rgba(42,67,96,0.5);color:#f4f9fd;background:#0a1826;}
+table.results tr:nth-child(even) td{background:#0d1f30;}
+table.results tr:hover td{background:rgba(62,198,224,0.12);}
+table.results td.cg{color:var(--accent);font-weight:700;}
+table.results td.maker{color:#ffffff;font-weight:700;}
+.badge{font-size:9.5px;padding:2px 8px;border-radius:10px;border:1px solid;white-space:nowrap;}
+.badge.ok{color:var(--ok);border-color:var(--ok);background:rgba(62,207,142,0.08);}
+.badge.ng{color:var(--danger);border-color:var(--danger);background:rgba(255,107,107,0.08);}
+.empty{padding:30px;text-align:center;color:var(--textdim);font-size:12.5px;}
+.footer-note{font-size:10.5px;color:#5f7794;text-align:center;margin-top:18px;line-height:1.8;}
+
+/* ====== パスフレーズ画面 ====== */
+.pw-overlay{
+  position:fixed;left:0;top:0;width:100%;height:100%;z-index:9999;
+  display:flex;align-items:center;justify-content:center;background:rgba(2,6,11,0.92);
+}
+.pw-card{background:linear-gradient(180deg,#07121a,#0d2130);border:1px solid rgba(255,255,255,0.04);padding:30px;border-radius:12px;width:380px;max-width:92%;text-align:center;color:var(--text);}
+.pw-card label{display:block;font-size:16px;color:var(--text);margin-bottom:10px;font-weight:700;}
+.pw-card input{width:100%;padding:12px;border-radius:8px;border:1px solid #22445a;background:#06202b;color:#fff;font-size:18px;text-align:center;}
+.pw-hint{margin-top:8px;font-size:12px;color:var(--textdim);}
+.pw-err{margin-top:8px;color:var(--danger);font-size:13px;min-height:1.2em;}
+.pw-cta{margin-top:12px;}
+.pw-cta .btn{padding:10px 18px;border-radius:10px;font-size:16px;}
+body.locked #mainWrap{visibility:hidden;}
+@media (max-width:420px){
+  .pw-card{width:92%;padding:20px;}
+  .pw-card input{font-size:18px;padding:14px;}
+  .pw-cta .btn{display:block;width:100%;}
+}
+</style>
+</head>
+<body class="locked">
+
+<script>
+window.addEventListener('error', function(e){
+  var b=document.getElementById('errBanner');
+  if(!b){
+    b=document.createElement('div'); b.id='errBanner';
+    b.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99999;background:#5a1620;color:#fff;font:12px/1.6 monospace;padding:8px 12px;white-space:pre-wrap';
+    document.body.appendChild(b);
+  }
+  b.textContent='スクリプトエラー: '+e.message+' ('+(e.lineno||'?')+'行目)';
+});
+</script>
+
+<!-- パスフレーズ画面（データは暗号化されており、正しいパスフレーズでのみ復号されます） -->
+<div id="pwOverlay" class="pw-overlay" aria-hidden="false">
+  <div class="pw-card" role="dialog" aria-modal="true">
+    <label for="pwInput">パスフレーズ</label>
+    <input id="pwInput" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="パスフレーズ">
+    <div id="pwErr" class="pw-err"></div>
+    <div class="pw-cta">
+      <button type="button" id="pwBtn" class="btn">開く</button>
+    </div>
+    <div class="pw-hint">部内限り ／ データは暗号化されています</div>
+  </div>
+</div>
+
+<div class="wrap" id="mainWrap">
+  <div class="hero">
+    <h1>ＵＬ救命胴衣　ホワイトリスト検索データベース</h1>
+    <p>メーカー名・コーストガード承認番号などで、承認済み救命胴衣（ＵＬ規格）を検索できます。</p>
+  </div>
+
+  <div class="card">
+    <div class="searchGrid">
+      <div class="field">
+        <label>1．メーカー名</label>
+        <select id="qMaker">
+          <option value="">（すべて）</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>2．型式名</label>
+        <select id="qModel">
+          <option value="">（すべて）</option>
+        </select>
+      </div>
+    </div>
+    <div class="searchGrid" style="margin-top:12px;">
+      <div class="field" style="grid-column:1 / -1;">
+        <label>コーストガード承認番号</label>
+        <input type="text" id="qCG" placeholder="例）160.064/4036/0（部分一致可）">
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="pillgroup" id="statusFilter">
+        <div class="pill active" data-v="all">すべて</div>
+        <div class="pill" data-v="承認">承認のみ</div>
+        <div class="pill" data-v="不合格">不合格品のみ</div>
+      </div>
+      <button class="btn" id="clearBtn">条件をクリア</button>
+    </div>
+  </div>
+
+  <div class="resultMeta" id="resultMeta"></div>
+  <div class="tableWrap">
+    <table class="results" id="resultsTable">
+      <thead>
+        <tr>
+          <th>番号</th><th>メーカー名</th><th>型式名</th><th>ULタイプ</th><th>サイズ</th>
+          <th>胸囲(in)</th><th>コーストガード承認番号</th><th>報告支部</th><th>実施年月日</th><th>備考</th><th>状態</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+    <div class="empty" id="emptyMsg" style="display:none;">該当するデータが見つかりません。</div>
+  </div>
+  <div class="pager" id="pager"></div>
+
+  <div class="footer-note">
+    元データ：ULゆうどい（部内限り）ホワイトリスト（2015年4月版）／全<span id="totalCount">-</span>件収録<br>
+    本データベースは参考情報です。最終確認は必ず原本・関係機関にお問い合わせください。
+  </div>
+</div>
+
+<script>
+/*CORE-START*/
+const B64 = {
+  enc(buf){ const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); },
+  dec(str){ const s = atob(str); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
+};
+async function deriveKey(pass, salt, iter, usage){
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass.normalize('NFKC')), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, usage);
+}
+async function decryptRecords(enc, pass){
+  if (!enc || enc.v !== 1) throw new Error('BAD_FORMAT');
+  const key = await deriveKey(pass, B64.dec(enc.salt), enc.iter, ['decrypt']);
+  let plain;
+  try { plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: B64.dec(enc.iv) }, key, B64.dec(enc.ct)); }
+  catch (e) { throw new Error('BAD_PASS'); }
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+/*CORE-END*/
+
+/* ====================== 全角→半角 正規化（英数字・記号） ====================== */
+function normalize(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/[／]/g, '/')
+    .replace(/[．]/g, '.')
+    .replace(/[－―ー]/g, '-')
+    .toLowerCase()
+    .trim();
+}
+function escapeHtml(s) { return String(s).replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ====================== 状態 ====================== */
+const DATA_URL = 'ul-data.enc';          // 暗号化データ（同じフォルダに置く）
+const TTL_MS = 10 * 60 * 1000;           // 開いてから10分で自動的に閉じる
+const PAGE_SIZE = 50;
+let RECORDS = [];
+let statusFilter = 'all';
+let currentPage = 1;
+let currentResults = [];
+let unlockedUntil = 0;
+let lockTimer = null;
+let encCache = null;
+
+const overlay = document.getElementById('pwOverlay');
+const pwInput = document.getElementById('pwInput');
+const pwBtn = document.getElementById('pwBtn');
+const pwErr = document.getElementById('pwErr');
+const qMakerEl = document.getElementById('qMaker');
+const qModelEl = document.getElementById('qModel');
+const qCGEl = document.getElementById('qCG');
+
+/* ====================== 検索UI ====================== */
+function rebuildMakerOptions() {
+  const makers = Array.from(new Set(RECORDS.map(r => String(r.sheet || '').trim()))).filter(Boolean).sort();
+  qMakerEl.innerHTML = '<option value="">（すべて）</option>' + makers.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+}
+function rebuildModelOptions() {
+  const maker = qMakerEl.value;
+  const models = Array.from(new Set(
+    RECORDS.filter(r => !maker || String(r.sheet || '').trim() === maker)
+           .map(r => String(r.model || '').trim())
+           .filter(Boolean)
+  )).sort();
+  const prev = qModelEl.value;
+  qModelEl.innerHTML = '<option value="">（すべて）</option>' + models.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
+  qModelEl.value = models.includes(prev) ? prev : '';
+}
+
+function runSearch() {
+  const maker = qMakerEl.value;
+  const model = qModelEl.value;
+  const qCG = normalize(qCGEl.value);
+  currentResults = RECORDS.filter(r => {
+    if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+    if (maker && String(r.sheet || '').trim() !== maker) return false;
+    if (model && String(r.model || '').trim() !== model) return false;
+    if (qCG && normalize(r.cg).indexOf(qCG) === -1) return false;
+    return true;
+  });
+  currentPage = 1;
+  renderResults();
+}
+
+function renderResults() {
+  const results = currentResults;
+  const body = document.getElementById('resultsBody');
+  const meta = document.getElementById('resultMeta');
+  const emptyMsg = document.getElementById('emptyMsg');
+  const table = document.getElementById('resultsTable');
+  const pager = document.getElementById('pager');
+
+  if (results.length === 0) {
+    meta.innerHTML = `<b>0</b> 件 / 全 ${RECORDS.length.toLocaleString()} 件`;
+    body.innerHTML = '';
+    table.style.display = 'none';
+    emptyMsg.style.display = 'block';
+    pager.innerHTML = '';
+    return;
+  }
+  table.style.display = '';
+  emptyMsg.style.display = 'none';
+
+  const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const shown = results.slice(start, start + PAGE_SIZE);
+
+  meta.innerHTML = `<b>${results.length.toLocaleString()}</b> 件 / 全 ${RECORDS.length.toLocaleString()} 件　（${start + 1}〜${start + shown.length} 件目を表示）`;
+
+  body.innerHTML = shown.map(r => `
+    <tr>
+      <td>${escapeHtml(r.no)}</td>
+      <td class="maker">${escapeHtml(r.maker)}</td>
+      <td>${escapeHtml(r.model)}</td>
+      <td>${escapeHtml(r.ultype)}</td>
+      <td>${escapeHtml(r.size)}</td>
+      <td>${escapeHtml(r.chest)}</td>
+      <td class="cg">${escapeHtml(r.cg)}</td>
+      <td>${escapeHtml(r.branch)}</td>
+      <td>${escapeHtml(r.date)}</td>
+      <td>${escapeHtml(r.note)}</td>
+      <td>${r.status === '不合格' ? '<span class="badge ng">不合格</span>' : '<span class="badge ok">承認</span>'}</td>
+    </tr>
+  `).join('');
+
+  renderPager(totalPages);
+}
+
+function renderPager(totalPages) {
+  const pager = document.getElementById('pager');
+  if (totalPages <= 1) { pager.innerHTML = ''; return; }
+  let html = `<button class="btn pageBtn" data-p="${currentPage - 1}" ${currentPage === 1 ? 'disabled' : ''}>← 前へ</button>`;
+  html += `<span class="pageInfo">${currentPage} / ${totalPages} ページ</span>`;
+  html += `<button class="btn pageBtn" data-p="${currentPage + 1}" ${currentPage === totalPages ? 'disabled' : ''}>次へ →</button>`;
+  pager.innerHTML = html;
+  pager.querySelectorAll('.pageBtn').forEach(b => {
+    b.addEventListener('click', () => {
+      const p = +b.dataset.p;
+      if (p < 1 || p > totalPages) return;
+      currentPage = p;
+      renderResults();
+      document.getElementById('resultMeta').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+}
+
+qMakerEl.addEventListener('change', () => { rebuildModelOptions(); runSearch(); });
+qModelEl.addEventListener('change', runSearch);
+qCGEl.addEventListener('input', runSearch);
+document.querySelectorAll('#statusFilter .pill').forEach(p => {
+  p.addEventListener('click', () => {
+    statusFilter = p.dataset.v;
+    document.querySelectorAll('#statusFilter .pill').forEach(x => x.classList.remove('active'));
+    p.classList.add('active');
+    runSearch();
+  });
+});
+document.getElementById('clearBtn').addEventListener('click', () => {
+  qMakerEl.value = '';
+  rebuildModelOptions();
+  qCGEl.value = '';
+  statusFilter = 'all';
+  document.querySelectorAll('#statusFilter .pill').forEach(x => x.classList.remove('active'));
+  document.querySelector('#statusFilter .pill[data-v="all"]').classList.add('active');
+  runSearch();
+});
+
+/* ====================== 開く／閉じる ====================== */
+function showErr(msg) { pwErr.textContent = msg || ''; }
+
+async function loadEnc() {
+  if (encCache) return encCache;
+  const res = await fetch(DATA_URL, { cache: 'no-cache' });
+  if (!res.ok) throw new Error('FETCH_FAILED');
+  encCache = await res.json();
+  return encCache;
+}
+
+async function unlock() {
+  const pass = pwInput.value;
+  if (!pass) { showErr('パスフレーズを入力してください'); return; }
+  pwBtn.disabled = true; pwInput.disabled = true;
+  showErr('復号中…');
+  try {
+    const enc = await loadEnc();
+    RECORDS = await decryptRecords(enc, pass);
+  } catch (e) {
+    RECORDS = [];
+    if (e && e.message === 'BAD_PASS') {
+      await new Promise(r => setTimeout(r, 1000));   // 連続入力を少し遅らせる
+      showErr('パスフレーズが違います');
+    } else if (e && e.message === 'FETCH_FAILED') {
+      showErr('データファイル（' + DATA_URL + '）を取得できません');
+    } else {
+      showErr('読み込みに失敗しました');
+    }
+    pwBtn.disabled = false; pwInput.disabled = false; pwInput.value = ''; pwInput.focus();
+    return;
+  }
+  pwInput.value = '';
+  pwBtn.disabled = false; pwInput.disabled = false;
+  showErr('');
+  document.getElementById('totalCount').textContent = RECORDS.length.toLocaleString();
+  rebuildMakerOptions();
+  rebuildModelOptions();
+  qCGEl.value = '';
+  statusFilter = 'all';
+  document.querySelectorAll('#statusFilter .pill').forEach(x => x.classList.toggle('active', x.dataset.v === 'all'));
+  runSearch();
+  overlay.style.display = 'none';
+  overlay.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('locked');
+  unlockedUntil = Date.now() + TTL_MS;
+  clearTimeout(lockTimer);
+  lockTimer = setTimeout(lock, TTL_MS);
+}
+
+function lock() {
+  clearTimeout(lockTimer);
+  unlockedUntil = 0;
+  RECORDS = []; currentResults = [];
+  document.getElementById('resultsBody').innerHTML = '';
+  document.getElementById('resultMeta').textContent = '';
+  document.getElementById('pager').innerHTML = '';
+  qMakerEl.innerHTML = '<option value="">（すべて）</option>';
+  qModelEl.innerHTML = '<option value="">（すべて）</option>';
+  qCGEl.value = '';
+  document.body.classList.add('locked');
+  overlay.style.display = 'flex';
+  overlay.setAttribute('aria-hidden', 'false');
+  showErr('');
+  setTimeout(() => { try { pwInput.focus(); } catch (e) {} }, 100);
+}
+
+function sync() {
+  if (!document.body.classList.contains('locked') && Date.now() > unlockedUntil) lock();
+}
+document.addEventListener('visibilitychange', sync);
+window.addEventListener('pageshow', sync);
+window.addEventListener('focus', sync);
+
+pwBtn.addEventListener('click', unlock);
+pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); unlock(); } });
+setTimeout(() => { try { pwInput.focus(); } catch (e) {} }, 200);
+</script>
+</body>
+</html>
