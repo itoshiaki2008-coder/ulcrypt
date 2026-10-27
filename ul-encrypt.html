@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>ULデータ暗号化ツール（ローカル専用）</title>
+<style>
+*{box-sizing:border-box;}
+body{margin:0;background:#0b1624;color:#eef4fb;font-family:'Helvetica Neue',Arial,sans-serif;font-size:14px;line-height:1.7;}
+.wrap{max-width:720px;margin:0 auto;padding:22px 16px 60px;}
+h1{font-size:19px;margin:6px 0 4px;}
+.sub{color:#a9c0d6;font-size:12.5px;margin-bottom:18px;}
+.card{background:#132339;border:1px solid #2a4360;border-radius:10px;padding:16px;margin-bottom:16px;}
+.card h2{font-size:14px;margin:0 0 10px;color:#3ec6e0;}
+.warn{background:#3a2a12;border:1px solid #7a5a1f;color:#ffd9a0;border-radius:8px;padding:10px 12px;font-size:12.5px;margin-bottom:16px;}
+label{display:block;font-size:12px;color:#a9c0d6;margin:10px 0 5px;}
+input[type=password],input[type=text],input[type=file]{width:100%;background:#0d1c2c;border:1px solid #2a4360;color:#fff;padding:9px 10px;border-radius:6px;font-size:14px;}
+.btn{background:#3b7dd8;border:none;color:#fff;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer;margin-top:12px;}
+.btn:disabled{opacity:.45;cursor:default;}
+.btn.sub2{background:transparent;border:1px solid #2a4360;color:#a9c0d6;font-weight:400;}
+.msg{margin-top:12px;font-size:12.5px;white-space:pre-wrap;}
+.ok{color:#3ecf8e;} .err{color:#ff6b6b;} .dim{color:#a9c0d6;}
+.meter{height:6px;border-radius:3px;background:#0d1c2c;margin-top:6px;overflow:hidden;}
+.meter i{display:block;height:100%;width:0;background:#ff6b6b;transition:width .2s,background .2s;}
+code{background:#0d1c2c;padding:1px 5px;border-radius:4px;}
+ol{padding-left:20px;margin:6px 0;} li{margin:4px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ＵＬデータ 暗号化ツール</h1>
+  <div class="sub">お使いのパソコン内だけで動作します（データはどこにも送信されません）。このファイルはGitHubに置かず、手元に保管してください。</div>
+
+  <div class="warn">
+    ・データはこの画面の中だけで暗号化されます。パスフレーズは忘れると復旧できません。<br>
+    ・暗号化データを公開しても、パスフレーズが推測されなければ読めません。<b>長く、他で使っていないパスフレーズ</b>にしてください。
+  </div>
+
+  <div class="card">
+    <h2>① 暗号化する（ul-data.enc を作成）</h2>
+    <label>元データ：現在の ul の <code>index.html</code>（または records.json）を選択</label>
+    <input type="file" id="srcFile" accept=".html,.htm,.json,text/html,application/json">
+    <div class="msg dim" id="srcInfo"></div>
+
+    <label>パスフレーズ（12文字以上、16文字以上を推奨）</label>
+    <input type="password" id="pass1" autocomplete="new-password">
+    <div class="meter"><i id="meterBar"></i></div>
+    <div class="msg dim" id="passInfo"></div>
+    <label>パスフレーズ（確認）</label>
+    <input type="password" id="pass2" autocomplete="new-password">
+
+    <button class="btn" id="encBtn" disabled>暗号化して ul-data.enc を保存</button>
+    <div class="msg" id="encMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>② 中身を確認／更新用に取り出す（任意）</h2>
+    <div class="sub" style="margin-bottom:6px">暗号化済みの <code>ul-data.enc</code> を開いて、データを更新したいときに records.json として取り出せます。編集後は①で再び暗号化します。</div>
+    <label>ul-data.enc を選択</label>
+    <input type="file" id="encFile">
+    <label>パスフレーズ</label>
+    <input type="password" id="pass3" autocomplete="off">
+    <button class="btn sub2" id="decBtn" disabled>復号して records.json を保存</button>
+    <div class="msg" id="decMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>公開手順</h2>
+    <ol>
+      <li>この画面で <code>ul-data.enc</code> を作る。</li>
+      <li>新しい <code>index.html</code>（暗号化対応版）と <code>ul-data.enc</code> の<b>2つだけ</b>を、ul のリポジトリに置く。</li>
+      <li>元データ（平文の index.html／Excel）は<b>リポジトリに置かない</b>。過去の履歴にも残さない（リポジトリを作り直す）。</li>
+    </ol>
+  </div>
+</div>
+<script>
+/*CORE-START*/
+const B64 = {
+  enc(buf){ const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); },
+  dec(str){ const s = atob(str); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
+};
+async function deriveKey(pass, salt, iter, usage){
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass.normalize('NFKC')), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, usage);
+}
+async function decryptRecords(enc, pass){
+  if (!enc || enc.v !== 1) throw new Error('BAD_FORMAT');
+  const key = await deriveKey(pass, B64.dec(enc.salt), enc.iter, ['decrypt']);
+  let plain;
+  try { plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: B64.dec(enc.iv) }, key, B64.dec(enc.ct)); }
+  catch (e) { throw new Error('BAD_PASS'); }
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+/*CORE-END*/
+
+const ITER = 600000;     // PBKDF2 の反復回数
+const $ = id => document.getElementById(id);
+let sourceRecords = null;
+
+async function encryptRecords(records, pass, iter) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(pass, salt, iter, ['encrypt']);
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, new TextEncoder().encode(JSON.stringify(records)));
+  return { v: 1, kdf: 'PBKDF2-SHA256', iter: iter, salt: B64.enc(salt), iv: B64.enc(iv), ct: B64.enc(ct) };
+}
+
+/* 現在の ul/index.html から  const RECORDS=[ ... ];  を取り出す（文字列内の括弧は無視） */
+function extractRecords(text) {
+  const m = /const\s+RECORDS\s*=\s*\[/.exec(text);
+  if (!m) throw new Error('「const RECORDS=[」が見つかりません。ULの index.html（旧版）を選んでください。');
+  const start = m.index + m[0].length - 1;
+  let depth = 0, inStr = false, esc = false;
+  for (let j = start; j < text.length; j++) {
+    const c = text[j];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === '"') inStr = false;
+    } else {
+      if (c === '"') inStr = true;
+      else if (c === '[') depth++;
+      else if (c === ']') { depth--; if (depth === 0) return JSON.parse(text.slice(start, j + 1)); }
+    }
+  }
+  throw new Error('配列の終わりが見つかりません。');
+}
+
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: type || 'application/octet-stream' }));
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+const readText = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(new Error('ファイルを読めません')); r.readAsText(f); });
+
+function strengthOf(p) {
+  let pool = 0;
+  if (/[a-z]/.test(p)) pool += 26;
+  if (/[A-Z]/.test(p)) pool += 26;
+  if (/[0-9]/.test(p)) pool += 10;
+  if (/[^A-Za-z0-9]/.test(p)) pool += 33;
+  return p.length * Math.log2(pool || 1);      // おおよそのビット数（ランダムな場合の上限）
+}
+function updateForm() {
+  const p1 = $('pass1').value, p2 = $('pass2').value;
+  const bits = strengthOf(p1);
+  const pct = Math.max(0, Math.min(100, bits / 80 * 100));
+  const bar = $('meterBar');
+  bar.style.width = pct + '%';
+  bar.style.background = bits < 50 ? '#ff6b6b' : bits < 70 ? '#ffb300' : '#3ecf8e';
+  let info = '';
+  if (p1.length === 0) info = '';
+  else if (p1.length < 12) info = '12文字以上にしてください（現在 ' + p1.length + ' 文字）';
+  else if (p1.length < 16) info = '使えますが、16文字以上を推奨します（単語を4〜5個つなげる、など）';
+  else info = '長さは十分です。辞書にある文章・他で使っている文字列は避けてください。';
+  $('passInfo').textContent = info;
+  const ok = sourceRecords && p1.length >= 12 && p1 === p2;
+  $('encBtn').disabled = !ok;
+  if (p1.length >= 12 && p2.length > 0 && p1 !== p2) $('passInfo').textContent += '　※確認用と一致しません';
+}
+
+$('srcFile').addEventListener('change', async e => {
+  sourceRecords = null; $('srcInfo').className = 'msg dim'; $('srcInfo').textContent = '';
+  const f = e.target.files[0]; if (!f) { updateForm(); return; }
+  try {
+    const text = await readText(f);
+    const recs = /\.json$/i.test(f.name) ? JSON.parse(text) : extractRecords(text);
+    if (!Array.isArray(recs) || recs.length === 0) throw new Error('データが空です');
+    const sheets = new Set(recs.map(r => r.sheet));
+    sourceRecords = recs;
+    $('srcInfo').className = 'msg ok';
+    $('srcInfo').textContent = '読み込みOK：' + recs.length.toLocaleString() + ' 件 ／ ' + sheets.size + ' シート（メーカー）';
+  } catch (err) {
+    $('srcInfo').className = 'msg err'; $('srcInfo').textContent = String(err.message || err);
+  }
+  updateForm();
+});
+$('pass1').addEventListener('input', updateForm);
+$('pass2').addEventListener('input', updateForm);
+
+$('encBtn').addEventListener('click', async () => {
+  const msg = $('encMsg'); msg.className = 'msg dim'; msg.textContent = '暗号化中…（数秒かかります）';
+  $('encBtn').disabled = true;
+  try {
+    const pass = $('pass1').value;
+    const enc = await encryptRecords(sourceRecords, pass, ITER);
+    const back = await decryptRecords(enc, pass);                       // 復号して検算
+    if (JSON.stringify(back) !== JSON.stringify(sourceRecords)) throw new Error('検算に失敗しました');
+    download('ul-data.enc', JSON.stringify(enc), 'application/json');
+    msg.className = 'msg ok';
+    msg.textContent = '完了：ul-data.enc を保存しました（検算OK・' + back.length.toLocaleString() + ' 件）。\n新しい index.html と一緒に ul のリポジトリへ置いてください。';
+  } catch (err) {
+    msg.className = 'msg err'; msg.textContent = '失敗：' + (err.message || err);
+  }
+  updateForm();
+});
+
+let encObj = null;
+$('encFile').addEventListener('change', async e => {
+  encObj = null; $('decMsg').textContent = ''; $('decBtn').disabled = true;
+  const f = e.target.files[0]; if (!f) return;
+  try { encObj = JSON.parse(await readText(f)); if (encObj.v !== 1) throw 0; $('decBtn').disabled = false; }
+  catch (err) { $('decMsg').className = 'msg err'; $('decMsg').textContent = 'ul-data.enc の形式ではありません'; }
+});
+$('decBtn').addEventListener('click', async () => {
+  const msg = $('decMsg'); msg.className = 'msg dim'; msg.textContent = '復号中…';
+  try {
+    const recs = await decryptRecords(encObj, $('pass3').value);
+    download('records.json', JSON.stringify(recs, null, 1), 'application/json');
+    msg.className = 'msg ok'; msg.textContent = '復号OK：' + recs.length.toLocaleString() + ' 件を records.json として保存しました。この中身は平文です。取り扱いに注意し、リポジトリには置かないでください。';
+  } catch (err) {
+    msg.className = 'msg err'; msg.textContent = (err.message === 'BAD_PASS') ? 'パスフレーズが違います' : '失敗：' + (err.message || err);
+  }
+});
+</script>
+</body>
+</html>
